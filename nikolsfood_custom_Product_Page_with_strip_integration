@@ -1,0 +1,316 @@
+import wixData from 'wix-data';
+import {submitPayment} from "backend/stripe";
+import { sendTemplateEmail } from 'backend/email'; 
+
+// Options that have been selected.
+let selectedOptions = {};
+let sum = 0;
+let repeatSum = 0;
+let repeatQtySum = 0;
+let QtySum = 0;
+let test =[];
+let prices = [];
+let datas = [];
+let sizes = [];
+let  Qty = [];
+let PrdtQty =[];
+let PrdtSizes =[];
+$w.onReady(function () {
+
+	//selectionRepeatersReady();
+    
+	
+	$w("#search").onInput((event, $w) => {
+		let zipsearch = $w("#search").value;
+		wixData.query('partnerRegistration').eq('zip',zipsearch).find().then(res=>{
+			if (res.items.length>0) {
+				$w('#notfound').hide();
+			$w('#repeater5').expand();
+			$w('#repeater5').data = res.items;
+			} else {
+				$w('#repeater5').collapse();
+				$w('#notfound').show();
+			}
+		})
+
+    });
+
+	//==========================Variety Code========================
+	
+          //sizes.push($item('#dropdown1').value);
+         
+        //console.log(itemData);
+          ContinueShopping();
+           
+    
+
+      
+
+            //continue shopping
+          $w('#continue').onClick(function(params) {
+               $w('#statebox8').changeState("State1");
+                
+          });
+
+                         
+});
+
+//=======================================Variety Pack Code===========================================
+
+
+function priceGet(price,PrdtSizes,prdtQty,totalQty,subtotal) {
+               $w('#pay').onClick(function(event) {
+                    submitPayment(price,$w('#fname').value+" "+ $w('#lname').value,$w('#zipcode').value,$w('#cardNumber').value,$w("#month").value,$w("#year").value,$w("#cvc").value).then(res=>{
+                       if($w("#email").value && $w("#phone").value && $w("#zipcode").value && $w("#cardNumber").value && $w("#month").value && $w("#year").value){
+                              let insertTo = {
+                                   "productNameSizes":PrdtSizes,
+                                   "productNameQuantity":prdtQty,
+                                   "totalQuantity":totalQty,
+                                   "customerName":$w('#fname').value+" "+ $w('#lname').value,
+                                   "email":$w('#email').value,
+                                   "phone":$w('#phone').value,
+                                   "address":$w('#address').value,
+                                   "zipCode":$w('#zipcode').value,
+                                   "country":$w('#country').value,
+                                   "city":$w('#city').value,
+                                   "subTotal":subtotal,
+                                   "total":price
+                              }
+                              wixData.insert("VarietyPackOrderList",insertTo).then(res=>{
+                                   $w("#statebox8").changeState("State4");
+                                   $w("#statebox8").scrollTo();
+                                   sendHTMLmail_RequestReceived(res.productNameSizes);
+                                   console.log(res)
+                              });
+
+
+                         }
+                          $w("#statebox8").scrollTo();
+                         
+                         
+                    });
+                    
+                                             
+               });
+
+               
+}
+
+function checkOut(price,qty) {
+     
+                         $w("#checkout").onClick(function(event) {
+                              $w("#statebox8").changeState("State3");
+                              $w("#statebox8").scrollTo();
+                             
+                              $w("#text105").text = String(qty);
+                                   if (price>=25) {
+									    $w("#text110").text = price.toFixed(2);
+                                        $w("#text109").text = "$1";
+                                        $w("#text104").text = (price-1).toFixed(2);
+                                   }else{
+									    $w("#text110").text = price.toFixed(2);
+                                        $w("#text104").text = (price).toFixed(2);
+                                   }
+                         });
+}
+
+//======================================Email Send Code========================
+function sendHTMLmail_RequestReceived(product) { 
+     const sender = "kay.aladesuyi@nickelsfood.com"; 
+     const bcc = "kay.aladesuyi@nickelsfood.com"; 
+     const recipient = $w("#email").value; 
+     const subject = `Request of Variety Pack received`; 
+     const name = $w('#fname').value+" "+ $w('#lname').value; 
+     const lastname = $w('#lname').value; 
+     const address = $w('#address').value; 
+     const OrderNumber = (Math.floor((Math.random() * 9999999) + 1)).toString(); 
+     const item1 =product[0].ProductName+" "+product[0].Size; 
+     const item2 =product[1].ProductName+" "+product[1].Size; 
+     const item3 =product[2].ProductName+" "+product[2].Size; 
+     const item4 =product[3].ProductName+" "+product[3].Size; 
+
+
+    
+    const body = { 
+        "personalizations": [{ 
+            "to": [{ 
+                "email": recipient
+             }], 
+             "bcc": [{ 
+                "email": bcc 
+             }], 
+             "dynamic_template_data": { 
+                    "subject": subject, 
+                    "Nombres": name, 
+                    "Apellidos": lastname, 
+                    "Email": recipient, 
+                    "Sender_Address":address, 
+                    "OrderId":OrderNumber, 
+                    "Item1": item1, 
+                    "Item2": item2,
+                    "Item3": item3, 
+                    "Item4": item4
+
+               }
+         }], 
+         "from": { 
+               "email": sender 
+         }, 
+         "reply_to": { 
+               "email": bcc 
+         }, 
+         "template_id": "d-01ebdfc8a23c437396838d0c6a14882a"      // replace with your template_id 
+    }; 
+    
+    sendTemplateEmail(body) 
+        .then(response => console.log(response));
+} 
+
+// dataset.onSave 
+export function dsCertificados_afterSave() { 
+    sendHTMLmail_RequestReceived(); 
+} 
+
+// dataset.onError 
+export function dsCertificados_error(operation, error) { 
+    const errorOp = operation; // "save" 
+    const errorMessage = error.message; 
+    console.log(error.message);
+    //$w("#txtDSerror").text = errorMessage + '.\nError on ' + errorOp + " operation." 
+}
+
+//State-1 Function
+function ContinueShopping() {
+     $w('#repeater1').onItemReady(($item, itemData, index) => {
+		
+		console.log(itemData.sizes)
+          datas.push(itemData);
+         $item('#input6').onChange(function(params) {
+                    Qty.push($item('#input6').value);
+                    $item('#addToCartButton').enable();
+                    console.log(Qty)
+         });
+         $item('#dropdown1').onChange(function(params) {
+			 if( $item('#dropdown1').value==="3.5 OZ"){
+				 prices.push(itemData.size1)
+                     test.push(itemData);
+                    sizes.push($item('#dropdown1').value);
+
+			 }
+			 if( $item('#dropdown1').value==="7.0 OZ"){
+				 prices.push(itemData.size2)
+                    test.push(itemData);
+                    sizes.push($item('#dropdown1').value);
+			 }
+          
+         })
+       });
+      $w("#addToCartButton").onClick(function(event) {
+
+               if (Qty.length>=1 && sizes.length>=1) {
+                                   $w('#statebox8').changeState("State2");
+                                   $w('#columnStrip20').scrollTo();
+                                   $w("#repeater2").data = test;
+                                   $w('#repeater2').onItemReady(($item, itemData, index) => {
+                                   $item('#text91').text = itemData.name;
+                                   $item('#text125').text = "$"+prices[index]*Qty[index];
+                                   $item('#text124').text = sizes[index];
+                                   $item('#text118').text ="("+Qty[index]+")";
+                                   if (sizes[index]===undefined) {
+                                        $item('#text124').text = "Nothing";
+                                        $item('#text125').text = "$"+0;
+                                   }
+                                   if (Qty[index]===undefined) {
+                                   
+                                        $item('#text118').text ="(0)";
+                                   }
+                                   
+
+                              
+                                       
+                                   
+
+                         });
+
+                         $w('#repeater2').forEachItem(($item, itemData, index) => {
+                               if(sum>0){
+                                   repeatSum = 0+ parseFloat(prices[index] *Qty[index]); 
+                               }else{
+                                     sum = sum+ parseFloat(prices[index] *Qty[index]);   
+                               }
+                               if (QtySum>0) {
+                                    repeatQtySum = 0+Number(Qty[index]);
+                               }else{
+                                      QtySum =QtySum+Number(Qty[index]);
+                               }
+                              
+                                  
+                         });
+                              sum = Number(sum)+Number(repeatSum);
+                              QtySum =QtySum+repeatQtySum;
+                              console.log(Number(sum)+Number(repeatSum));
+                          if (sum>=25) {
+                                   $w('#text103').text =String(QtySum);
+                                   checkOut(sum,QtySum);
+                                   $w('#text99,#text109').text = "$"+String(1);
+                                   $w('#text101').text = "$"+String((sum-1).toFixed(2));
+                                   $w('#text98').text = "$"+String(sum.toFixed(2));
+                                        //Varietyprice((sum-1).toFixed(2));
+                                   console.log("Test" +(sum-1).toFixed(2));
+                                   priceGet((sum-1).toFixed(2),PrdtSizes,PrdtQty,QtySum,sum.toFixed(2));
+
+                              }else{
+                                   $w('#text103').text =String(QtySum);
+                                   checkOut(sum,QtySum);
+                                   $w('#text99,#text109').text = "$"+String(0);
+                                   $w('#text98').text = "$"+String(sum.toFixed(2));
+                                   $w('#text101').text = "$"+String(sum.toFixed(2));
+                                   // Varietyprice(sum.toFixed(2));
+                                   console.log("Test" +(sum).toFixed(2));
+                                   priceGet(parseFloat((sum).toFixed(2)),PrdtSizes,PrdtQty,QtySum,sum.toFixed(2));
+                                   
+                              }
+                    
+               }
+              
+                    //let nr = test.length;
+
+               //    //console.log(nr)
+               //      for(var i = 0; i <= nr; i ++) {
+
+               //           sum += parseFloat(prices[i]*Qty[i]);
+               //           QtySum += Number(Qty[i]); 
+                      
+                       
+               //          if(i===nr-1){
+                             
+               //                      if (sum>=25) {
+			// 						$w('#text103').text =String(QtySum);
+               //           				checkOut(sum,QtySum);
+               //                               $w('#text99,#text109').text = "$"+String(1);
+               //                               $w('#text101').text = "$"+String((sum-1).toFixed(2));
+			// 						 $w('#text98').text = "$"+String(sum.toFixed(2));
+               //                                    //Varietyprice((sum-1).toFixed(2));
+               //                                console.log("Test" +(sum-1).toFixed(2));
+               //                               priceGet((sum-1).toFixed(2),PrdtSizes,PrdtQty,QtySum,sum.toFixed(2));
+
+               //                          }else{
+			// 						$w('#text103').text =String(QtySum);
+               //           				checkOut(sum,QtySum);
+               //                               $w('#text99,#text109').text = "$"+String(0);
+			// 						$w('#text98').text = "$"+String(sum.toFixed(2));
+               //                               $w('#text101').text = "$"+String(sum.toFixed(2));
+               //                               // Varietyprice(sum.toFixed(2));
+               //                                console.log("Test" +(sum).toFixed(2));
+               //                                priceGet(parseFloat((sum).toFixed(2)),PrdtSizes,PrdtQty,QtySum,sum.toFixed(2));
+                                               
+               //                          }
+               //           }
+                         
+               //      }
+
+                    
+                
+            });
+
+}
